@@ -223,7 +223,22 @@ class Yamtrack(id: Long) : BaseTracker(id, "Yamtrack"), DeletableTracker {
             } else {
                 null
             }
-            api.addMedia(track, mediaType, source, mediaId, track.title, cover)
+            val created = api.addMedia(track, mediaType, source, mediaId, track.title, cover)
+            // Manual entries get a UUID assigned by Yamtrack (Item.generate_manual_id());
+            // the search-query-derived tracking_url won't match it, so subsequent
+            // GET/PATCH/DELETE would 404. Rewrite tracking_url + remote_id with the
+            // server-assigned media_id so the entry stays addressable.
+            val assignedMediaId = created?.item?.mediaId
+            if (source == SOURCE_MANUAL && !assignedMediaId.isNullOrBlank() && assignedMediaId != mediaId) {
+                track.tracking_url = buildTrackingUrl(
+                    getBaseUrl().trimEnd('/'),
+                    source,
+                    mediaType,
+                    assignedMediaId,
+                    track.title,
+                )
+                track.remote_id = buildRemoteId(source, assignedMediaId)
+            }
             track
         }
     }

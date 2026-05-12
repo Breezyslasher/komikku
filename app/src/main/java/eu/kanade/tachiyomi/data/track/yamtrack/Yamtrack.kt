@@ -14,7 +14,9 @@ import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.channelFlow
 import kotlinx.coroutines.launch
+import tachiyomi.domain.manga.interactor.GetManga
 import tachiyomi.i18n.MR
+import uy.kohesive.injekt.injectLazy
 import java.net.URLDecoder
 import java.net.URLEncoder
 import java.text.Normalizer
@@ -155,6 +157,8 @@ class Yamtrack(id: Long) : BaseTracker(id, "Yamtrack"), DeletableTracker {
 
     private val api by lazy { YamtrackApi(this, client, interceptor) }
 
+    private val getManga: GetManga by injectLazy()
+
     override fun getLogo(): Int = R.drawable.brand_yamtrack
 
     override fun getStatusList(): List<Long> = listOf(PLANNING, READING, PAUSED, COMPLETED, DROPPED)
@@ -212,7 +216,14 @@ class Yamtrack(id: Long) : BaseTracker(id, "Yamtrack"), DeletableTracker {
             if (track.status == 0L) {
                 track.status = if (hasReadChapters) READING else PLANNING
             }
-            api.addMedia(track, mediaType, source, mediaId, track.title)
+            // For manual entries Yamtrack accepts an `image` URL; provider-sourced entries
+            // pull their cover from the upstream provider regardless of what we send.
+            val cover = if (source == SOURCE_MANUAL) {
+                getManga.await(track.manga_id)?.thumbnailUrl
+            } else {
+                null
+            }
+            api.addMedia(track, mediaType, source, mediaId, track.title, cover)
             track
         }
     }

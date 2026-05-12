@@ -2,6 +2,7 @@ package eu.kanade.tachiyomi.data.track.yamtrack
 
 import eu.kanade.tachiyomi.data.database.models.Track
 import eu.kanade.tachiyomi.data.track.model.TrackSearch
+import eu.kanade.tachiyomi.data.track.yamtrack.dto.YTCreateResponse
 import eu.kanade.tachiyomi.data.track.yamtrack.dto.YTMediaItem
 import eu.kanade.tachiyomi.data.track.yamtrack.dto.YTSearchItem
 import eu.kanade.tachiyomi.data.track.yamtrack.dto.YTSearchResponse
@@ -117,7 +118,7 @@ class YamtrackApi(
         mediaId: String,
         title: String? = null,
         imageUrl: String? = null,
-    ) {
+    ): YTCreateResponse? {
         val body = buildJsonObject {
             put("source", source)
             if (source == Yamtrack.SOURCE_MANUAL) {
@@ -132,12 +133,17 @@ class YamtrackApi(
             }
             putTrackingFields(track)
         }
-        authClient.newCall(
+        val response = authClient.newCall(
             POST(
                 url = apiUrl(mediaTypeCollectionPath(mediaType)),
                 body = body.toString().toRequestBody(jsonMime),
             ),
-        ).awaitSuccess().close()
+        ).awaitSuccess()
+        return try {
+            with(json) { response.parseAs<YTCreateResponse>() }
+        } catch (_: Exception) {
+            null
+        }
     }
 
     suspend fun updateMedia(track: Track, mediaType: String, source: String, mediaId: String) {

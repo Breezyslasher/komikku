@@ -110,12 +110,22 @@ class YamtrackApi(
         }
     }
 
-    suspend fun addMedia(track: Track, mediaType: String, source: String, mediaId: String, title: String? = null) {
+    suspend fun addMedia(
+        track: Track,
+        mediaType: String,
+        source: String,
+        mediaId: String,
+        title: String? = null,
+        imageUrl: String? = null,
+    ) {
         val body = buildJsonObject {
             put("source", source)
             if (source == Yamtrack.SOURCE_MANUAL) {
                 if (!title.isNullOrBlank()) {
                     put("title", title)
+                }
+                if (!imageUrl.isNullOrBlank()) {
+                    put("image", imageUrl)
                 }
             } else {
                 put("media_id", mediaId)

@@ -25,6 +25,17 @@
     <string name="pref_category_mangadex">MangaDex</string>
     <string name="pref_ehentai_summary">E/ExHentai login, gallery sync</string>
     <string name="pref_mangadex_summary">MangaDex login, follows sync</string>
+    <string name="pref_category_mangabrain">MangaBrain</string>
+    <string name="pref_mangabrain_summary">Self-hosted recommendation engine</string>
+    <string name="pref_mangabrain_base_url">Host URL</string>
+    <string name="pref_mangabrain_base_url_summary">e.g. http://192.168.1.10:8000</string>
+    <string name="pref_mangabrain_api_token">API token</string>
+    <string name="pref_mangabrain_api_token_summary">Optional bearer token (leave blank if AUTH_TOKEN isn\'t set)</string>
+    <string name="pref_mangabrain_prefer">Prefer MangaBrain for recommendations</string>
+    <string name="pref_mangabrain_prefer_summary">Replaces the default AniList / MangaUpdates / MyAnimeList recommenders when a host URL is set</string>
+    <string name="pref_mangabrain_test_connection">Test connection</string>
+    <string name="mangabrain_test_success">MangaBrain reachable</string>
+    <string name="mangabrain_test_failure">Could not reach MangaBrain: %s</string>
 
     <!-- About -->
     <string name="changelog_version">Version %1$s</string>

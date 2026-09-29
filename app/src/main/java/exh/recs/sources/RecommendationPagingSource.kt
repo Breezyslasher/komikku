@@ -10,6 +10,7 @@ import eu.kanade.tachiyomi.source.model.SChapter
 import eu.kanade.tachiyomi.source.model.SManga
 import eu.kanade.tachiyomi.source.model.SMangaUpdate
 import exh.md.similar.MangaDexSimilarPagingSource
+import exh.pref.MangaBrainPreferences
 import exh.source.COMICK_IDS
 import exh.source.MANGADEX_IDS
 import kotlinx.serialization.json.Json
@@ -56,10 +57,20 @@ abstract class RecommendationPagingSource(
             // KMK <--
         ): List<RecommendationPagingSource> {
             return buildList {
-                add(AniListPagingSource(manga))
-                add(MangaUpdatesCommunityPagingSource(manga))
-                add(MangaUpdatesSimilarPagingSource(manga))
-                add(MyAnimeListPagingSource(manga))
+                // If a MangaBrain instance is configured and the user opted in, it replaces
+                // the default tracker-backed recommenders (AniList / MangaUpdates / MAL).
+                // Source-native recommenders (Comick, MangaDex-similar) always run alongside.
+                val mangaBrainPrefs = Injekt.get<MangaBrainPreferences>()
+                val mangaBrainEnabled = mangaBrainPrefs.preferOverFallback().get() &&
+                    mangaBrainPrefs.baseUrl().get().isNotBlank()
+                if (mangaBrainEnabled) {
+                    add(MangaBrainPagingSource(manga))
+                } else {
+                    add(AniListPagingSource(manga))
+                    add(MangaUpdatesCommunityPagingSource(manga))
+                    add(MangaUpdatesSimilarPagingSource(manga))
+                    add(MyAnimeListPagingSource(manga))
+                }
 
                 // Only include MangaDex if the delegate sources are enabled and the source is MD-based
                 if (

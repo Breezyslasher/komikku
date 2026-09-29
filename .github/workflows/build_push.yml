@@ -24,6 +24,10 @@ jobs:
   build:
     name: Build app
     runs-on: 'ubuntu-24.04'
+    env:
+      HAS_GOOGLE_SERVICES: ${{ secrets.GOOGLE_SERVICES_JSON != '' }}
+      HAS_CLIENT_SECRETS: ${{ secrets.GOOGLE_CLIENT_SECRETS_JSON != '' }}
+      HAS_SIGNING_KEY: ${{ secrets.SIGNING_KEY != '' }}
 
     steps:
       - name: Clone repo
@@ -38,6 +42,7 @@ jobs:
           distribution: temurin
 
       - name: Write google-services.json
+        if: env.HAS_GOOGLE_SERVICES == 'true'
         uses: DamianReeves/write-file-action@6929a9a6d1807689191dcc8bbe62b54d70a32b42 # v1.3
         with:
           path: app/google-services.json
@@ -45,6 +50,7 @@ jobs:
           write-mode: overwrite
 
       - name: Write client_secrets.json
+        if: env.HAS_CLIENT_SECRETS == 'true'
         uses: DamianReeves/write-file-action@6929a9a6d1807689191dcc8bbe62b54d70a32b42 # v1.3
         with:
           path: app/src/main/assets/client_secrets.json
@@ -58,7 +64,12 @@ jobs:
         run: ./gradlew spotlessCheck
 
       - name: Build app
-        run: ./gradlew assemblePreview -Pinclude-telemetry -Penable-updater
+        run: |
+          if [ "$HAS_GOOGLE_SERVICES" = "true" ]; then
+            ./gradlew assemblePreview -Pinclude-telemetry -Penable-updater
+          else
+            ./gradlew assemblePreview -Penable-updater
+          fi
 
       - name: Run unit tests
         id: unit_tests
@@ -72,6 +83,7 @@ jobs:
           path: app/build/reports/tests/testReleaseUnitTest
 
       - name: Sign APK
+        if: env.HAS_SIGNING_KEY == 'true'
         uses: r0adkll/sign-android-release@f30bdd30588842ac76044ecdbd4b6d0e3e813478
         with:
           releaseDirectory: app/build/outputs/apk/preview
@@ -92,7 +104,10 @@ jobs:
           echo "VERSION_TAG=$version_tag" >> $GITHUB_OUTPUT
           echo "COMMIT_COUNT=$commit_count"
           echo "COMMIT_COUNT=$commit_count" >> $GITHUB_OUTPUT
-          mv app/build/outputs/apk/preview/app-universal-preview-signed.apk Komikku-$version_tag-r$commit_count.apk
+          # Without SIGNING_KEY the preview APK keeps its debug signature and no "-signed" suffix.
+          apk=app/build/outputs/apk/preview/app-universal-preview-signed.apk
+          [ -f "$apk" ] || apk=$(ls app/build/outputs/apk/preview/*universal*.apk | head -n1)
+          mv "$apk" Komikku-$version_tag-r$commit_count.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

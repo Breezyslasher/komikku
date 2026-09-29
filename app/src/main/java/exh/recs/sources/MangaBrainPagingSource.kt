@@ -74,7 +74,7 @@ class MangaBrainPagingSource(manga: Manga) : TrackerRecommendationPagingSource(
     }
 
     private fun MBMedia.toSManga(): SManga {
-        val displayTitle = title ?: titleEnglish ?: titleNative ?: "Untitled"
+        val displayTitle = titleEnglish ?: title ?: titleNative ?: "Untitled"
         // Recommendations get piped through SmartSearch; the url here is a stable identifier
         // and — when a MAL id is known — a link the user can open outside komikku.
         val url = idMal?.let { "https://myanimelist.net/manga/$it" }

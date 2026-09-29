@@ -33,7 +33,6 @@ object SettingsMangaBrainScreen : SearchableSettings {
     @Composable
     override fun getPreferences(): List<Preference> {
         val prefs = remember { Injekt.get<MangaBrainPreferences>() }
-        val baseUrl by prefs.baseUrl().collectAsState()
 
         return listOf(
             Preference.PreferenceGroup(
@@ -53,12 +52,6 @@ object SettingsMangaBrainScreen : SearchableSettings {
                         preference = prefs.apiToken(),
                         title = stringResource(SYMR.strings.pref_mangabrain_api_token),
                         subtitle = stringResource(SYMR.strings.pref_mangabrain_api_token_summary),
-                    ),
-                    Preference.PreferenceItem.SwitchPreference(
-                        preference = prefs.preferOverFallback(),
-                        title = stringResource(SYMR.strings.pref_mangabrain_prefer),
-                        subtitle = stringResource(SYMR.strings.pref_mangabrain_prefer_summary),
-                        enabled = baseUrl.isNotBlank(),
                     ),
                     testConnectionPreference(prefs),
                 ),

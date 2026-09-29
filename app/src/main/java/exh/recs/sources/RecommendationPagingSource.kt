@@ -57,19 +57,13 @@ abstract class RecommendationPagingSource(
             // KMK <--
         ): List<RecommendationPagingSource> {
             return buildList {
-                // If a MangaBrain instance is configured and the user opted in, it replaces
-                // the default tracker-backed recommenders (AniList / MangaUpdates / MAL).
-                // Source-native recommenders (Comick, MangaDex-similar) always run alongside.
-                val mangaBrainPrefs = Injekt.get<MangaBrainPreferences>()
-                val mangaBrainEnabled = mangaBrainPrefs.preferOverFallback().get() &&
-                    mangaBrainPrefs.baseUrl().get().isNotBlank()
-                if (mangaBrainEnabled) {
+                add(AniListPagingSource(manga))
+                add(MangaUpdatesCommunityPagingSource(manga))
+                add(MangaUpdatesSimilarPagingSource(manga))
+                add(MyAnimeListPagingSource(manga))
+
+                if (Injekt.get<MangaBrainPreferences>().baseUrl().get().isNotBlank()) {
                     add(MangaBrainPagingSource(manga))
-                } else {
-                    add(AniListPagingSource(manga))
-                    add(MangaUpdatesCommunityPagingSource(manga))
-                    add(MangaUpdatesSimilarPagingSource(manga))
-                    add(MyAnimeListPagingSource(manga))
                 }
 
                 // Only include MangaDex if the delegate sources are enabled and the source is MD-based

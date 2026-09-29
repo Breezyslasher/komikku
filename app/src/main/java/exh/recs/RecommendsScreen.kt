@@ -4,6 +4,10 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import cafe.adriel.voyager.core.model.rememberScreenModel
@@ -16,16 +20,23 @@ import eu.kanade.tachiyomi.ui.browse.BulkFavoriteScreenModel
 import eu.kanade.tachiyomi.ui.browse.source.SourcesScreen
 import eu.kanade.tachiyomi.ui.manga.MangaScreen
 import eu.kanade.tachiyomi.ui.webview.WebViewActivity
+import eu.kanade.tachiyomi.util.system.toast
+import exh.pref.MangaBrainPreferences
 import exh.recs.RecommendsScreen.Args.MergedSourceMangas
 import exh.recs.RecommendsScreen.Args.SingleSourceManga
 import exh.recs.batch.RankedSearchResults
+import exh.recs.components.MangaBrainFilterDialog
 import exh.recs.components.RecommendsScreen
+import exh.recs.sources.MangaBrainFilters
+import exh.recs.sources.MangaBrainPagingSource
 import exh.recs.sources.RECOMMENDS_SOURCE
 import exh.recs.sources.StaticResultPagingSource
 import tachiyomi.domain.manga.model.Manga
 import tachiyomi.i18n.sy.SYMR
 import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.screens.LoadingScreen
+import uy.kohesive.injekt.Injekt
+import uy.kohesive.injekt.api.get
 import java.io.Serializable
 
 class RecommendsScreen(private val args: Args) : Screen() {
@@ -47,6 +58,7 @@ class RecommendsScreen(private val args: Args) : Screen() {
 
         val screenModel = rememberScreenModel { RecommendsScreenModel(args) }
         val state by screenModel.state.collectAsState()
+        var showMangaBrainFilters by rememberSaveable { mutableStateOf(false) }
 
         // KMK -->
         val bulkFavoriteScreenModel = rememberScreenModel { BulkFavoriteScreenModel() }
@@ -114,7 +126,27 @@ class RecommendsScreen(private val args: Args) : Screen() {
             },
             onClickItem = { onClickItem(it) },
             onLongClickItem = { onLongClickItem(it) },
+            onOpenMangaBrainFilters = { showMangaBrainFilters = true }
+                .takeIf { state.items.keys.any { it is MangaBrainPagingSource } },
         )
+
+        if (showMangaBrainFilters) {
+            val savedToast = stringResource(SYMR.strings.mangabrain_saved_as_default)
+            MangaBrainFilterDialog(
+                initial = screenModel.currentMangaBrainFilters(),
+                defaults = remember { MangaBrainFilters.fromPreferences(Injekt.get<MangaBrainPreferences>()) },
+                onDismissRequest = { showMangaBrainFilters = false },
+                onApply = {
+                    screenModel.applyMangaBrainFilters(it)
+                    showMangaBrainFilters = false
+                },
+                onSaveAsDefault = {
+                    screenModel.saveMangaBrainFiltersAsDefault(it)
+                    context.toast(savedToast)
+                    showMangaBrainFilters = false
+                },
+            )
+        }
 
         // KMK -->
         BulkFavoriteDialogs(

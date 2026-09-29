@@ -41,34 +41,42 @@ class MangaBrainPagingSource(manga: Manga) : TrackerRecommendationPagingSource(
             .build()
     }
 
+    private fun currentFilters(): MangaBrainFilters =
+        MangaBrainSessionFilters[manga.id] ?: MangaBrainFilters.fromPreferences(prefs)
+
     override suspend fun getRecsById(id: String): List<SManga> {
         val base = baseUrl().ifEmpty { return emptyList() }
+        val filters = currentFilters()
         val resolveUrl = "$base/search/by-mal/$id".toHttpUrl().newBuilder()
             .addQueryParameter("type", "manga")
+            // Seed lookup hides adult entries by default too; without this an adult seed can't resolve.
+            .apply { if (filters.includeAdult) addQueryParameter("adult", "true") }
             .build()
         val resolved = with(json) {
             client.newCall(authedRequest(resolveUrl.toString())).awaitSuccess().parseAs<MBMedia>()
         }
-        return fetchRecommendations(base, resolved.id)
+        return fetchRecommendations(base, resolved.id, filters)
     }
 
     override suspend fun getRecsBySearch(search: String): List<SManga> {
         val base = baseUrl().ifEmpty { return emptyList() }
+        val filters = currentFilters()
         val searchUrl = "$base/search".toHttpUrl().newBuilder()
             .addQueryParameter("q", search)
             .addQueryParameter("medium", "manga")
+            .apply { if (filters.includeAdult) addQueryParameter("adult", "true") }
             .build()
         val response = with(json) {
             client.newCall(authedRequest(searchUrl.toString())).awaitSuccess().parseAs<MBSearchResponse>()
         }
         val first = response.results.firstOrNull() ?: return emptyList()
-        return fetchRecommendations(base, first.id)
+        return fetchRecommendations(base, first.id, filters)
     }
 
-    private suspend fun fetchRecommendations(base: String, brainId: Long): List<SManga> {
-        val recommendUrl = "$base/recommend/$brainId"
+    private suspend fun fetchRecommendations(base: String, brainId: Long, filters: MangaBrainFilters): List<SManga> {
+        val recommendUrl = filters.applyTo("$base/recommend/$brainId".toHttpUrl().newBuilder()).build()
         val response = with(json) {
-            client.newCall(authedRequest(recommendUrl)).awaitSuccess().parseAs<MBRecommendResponse>()
+            client.newCall(authedRequest(recommendUrl.toString())).awaitSuccess().parseAs<MBRecommendResponse>()
         }
         return response.results.map { it.media.toSManga() }
     }

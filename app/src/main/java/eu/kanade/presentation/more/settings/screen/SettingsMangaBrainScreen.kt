@@ -14,6 +14,7 @@ import eu.kanade.tachiyomi.util.system.toast
 import exh.pref.MangaBrainPreferences
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.coroutines.launch
+import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.i18n.sy.SYMR
 import tachiyomi.presentation.core.i18n.stringResource

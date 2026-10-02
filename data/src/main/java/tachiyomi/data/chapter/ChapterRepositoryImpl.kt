@@ -20,19 +20,23 @@ class ChapterRepositoryImpl(
             handler.await(inTransaction = true) {
                 chapters.map { chapter ->
                     chaptersQueries.insert(
-                        chapter.mangaId,
-                        chapter.url,
-                        chapter.name,
-                        chapter.scanlator,
-                        chapter.read,
-                        chapter.bookmark,
-                        chapter.lastPageRead,
-                        chapter.chapterNumber,
-                        chapter.sourceOrder,
-                        chapter.dateFetch,
-                        chapter.dateUpload,
-                        chapter.version,
-                        chapter.memo,
+                        mangaId = chapter.mangaId,
+                        url = chapter.url,
+                        name = chapter.name,
+                        scanlator = chapter.scanlator,
+                        read = chapter.read,
+                        bookmark = chapter.bookmark,
+                        lastPageRead = chapter.lastPageRead,
+                        chapterNumber = chapter.chapterNumber,
+                        sourceOrder = chapter.sourceOrder,
+                        dateFetch = chapter.dateFetch,
+                        dateUpload = chapter.dateUpload,
+                        version = chapter.version,
+                        // SY -->
+                        lastModifiedAt = 0,
+                        isSyncing = 0,
+                        // SY <--
+                        memo = chapter.memo,
                     )
                     val lastInsertId = chaptersQueries.selectLastInsertedRowId().executeAsOne()
                     chapter.copy(id = lastInsertId)
@@ -69,7 +73,10 @@ class ChapterRepositoryImpl(
                     dateUpload = chapterUpdate.dateUpload,
                     chapterId = chapterUpdate.id,
                     version = chapterUpdate.version,
-                    isSyncing = 0,
+                    // SY -->
+                    lastModifiedAt = null,
+                    isSyncing = null,
+                    // SY <--
                     memo = chapterUpdate.memo?.let(MemoColumnAdapter::encode),
                 )
             }

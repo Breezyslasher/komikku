@@ -14,6 +14,8 @@ import eu.kanade.tachiyomi.util.storage.getUriCompat
 import eu.kanade.tachiyomi.util.system.cancelNotification
 import eu.kanade.tachiyomi.util.system.notificationBuilder
 import eu.kanade.tachiyomi.util.system.notify
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import tachiyomi.core.common.i18n.pluralStringResource
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.storage.displayablePath
@@ -101,12 +103,18 @@ class BackupNotifier(private val context: Context) {
         }
     }
 
+    // SY -->
+    // Restorers run concurrently and share progressNotificationBuilder; clearing and adding
+    // actions from two of them at once throws ConcurrentModificationException.
+    private val restoreProgressMutex = Mutex()
+    // SY <--
+
     suspend fun showRestoreProgress(
         content: String = "",
         progress: Int = 0,
         maxAmount: Int = 100,
         sync: Boolean = false,
-    ): NotificationCompat.Builder {
+    ): NotificationCompat.Builder /* SY --> */ = restoreProgressMutex.withLock /* SY <-- */ {
         val builder = with(progressNotificationBuilder) {
             val contentTitle = if (sync) {
                 context.stringResource(MR.strings.syncing_library)
@@ -139,7 +147,7 @@ class BackupNotifier(private val context: Context) {
         // builder.show(Notifications.ID_RESTORE_PROGRESS)
         // KMK <--
 
-        return builder
+        builder
     }
 
     fun showRestoreError(error: String?) {

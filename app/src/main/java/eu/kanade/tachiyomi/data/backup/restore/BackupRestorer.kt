@@ -36,7 +36,7 @@ class BackupRestorer(
     private val notifier: BackupNotifier,
     private val isSync: Boolean,
 
-    private val categoriesRestorer: CategoriesRestorer = CategoriesRestorer(),
+    private val categoriesRestorer: CategoriesRestorer = CategoriesRestorer(/* SY --> */ isSync /* SY <-- */),
     private val preferenceRestorer: PreferenceRestorer = PreferenceRestorer(context),
     private val extensionStoreRestorer: ExtensionStoreRestorer = ExtensionStoreRestorer(),
     private val mangaRestorer: MangaRestorer = MangaRestorer(isSync),
@@ -105,6 +105,7 @@ class BackupRestorer(
 
         coroutineScope {
             if (options.categories) {
+                // restoreCategories suspends until done, so manga restore below always sees new categories.
                 restoreCategories(backup.backupCategories)
             }
             // SY -->

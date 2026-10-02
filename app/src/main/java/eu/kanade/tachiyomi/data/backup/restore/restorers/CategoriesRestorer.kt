@@ -8,6 +8,9 @@ import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 
 class CategoriesRestorer(
+    // SY -->
+    private val isSync: Boolean = false,
+    // SY <--
     private val handler: DatabaseHandler = Injekt.get(),
     private val getCategories: GetCategories = Injekt.get(),
     private val libraryPreferences: LibraryPreferences = Injekt.get(),
@@ -56,7 +59,12 @@ class CategoriesRestorer(
                         return@map dbCategory
                     }
 
-                    val order = nextOrder++
+                    // SY -->
+                    // A sync delta is a converging replica, not an import: new
+                    // categories must land at the position the server holds or
+                    // reorders never converge across devices.
+                    val order = if (isSync) backupCategory.order else nextOrder++
+                    // SY <--
                     handler.awaitOneExecutable {
                         categoriesQueries.insert(
                             name = backupCategory.name,

@@ -166,33 +166,36 @@ class SyncYomiSyncService(
             body = body,
         )
 
-        /* KMK --> */ return client.newCall(request).await().use { response -> /* KMK <-- */
-        if (!response.isSuccessful) {
-            val responseBody = response.body.string()
-            logcat(LogPriority.ERROR) { "SyncError (${response.code}): $responseBody" }
-            reportSyncEvent(SyncEventStatus.SYNC_FAILED, "Server answered ${response.code}")
-            throw SyncYomiException("Failed to sync: ${response.code} $responseBody")
-        }
+        return client.newCall(request).await()
+            // KMK -->
+            .use { response ->
+                // KMK <--
+                if (!response.isSuccessful) {
+                    val responseBody = response.body.string()
+                    logcat(LogPriority.ERROR) { "SyncError (${response.code}): $responseBody" }
+                    reportSyncEvent(SyncEventStatus.SYNC_FAILED, "Server answered ${response.code}")
+                    throw SyncYomiException("Failed to sync: ${response.code} $responseBody")
+                }
 
-        val bytes = response.body.bytes()
-        val remote = protoBuf.decodeFromByteArray(Backup.serializer(), bytes)
-        val cursor = response.headers["X-Sync-Cursor"]?.toLongOrNull()
-            ?: throw SyncYomiException("Missing X-Sync-Cursor")
-        val changed = response.headers["X-Sync-Changed"]?.toBoolean() ?: true
-        val fullRequested = response.headers["X-Sync-Full-Requested"]?.toBoolean() ?: false
+                val bytes = response.body.bytes()
+                val remote = protoBuf.decodeFromByteArray(Backup.serializer(), bytes)
+                val cursor = response.headers["X-Sync-Cursor"]?.toLongOrNull()
+                    ?: throw SyncYomiException("Missing X-Sync-Cursor")
+                val changed = response.headers["X-Sync-Changed"]?.toBoolean() ?: true
+                val fullRequested = response.headers["X-Sync-Full-Requested"]?.toBoolean() ?: false
 
-        syncPreferences.syncCursor().set(cursor)
-        syncPreferences.fullSyncRequested().set(fullRequested)
-        // Only drop the uids we actually sent; a category deleted during the request stays pending.
-        syncPreferences.pendingDeletedCategoryUids().set(syncPreferences.pendingDeletedCategoryUids().get() - pendingDeleted)
-        if (full) {
-            syncPreferences.lastFullSync().set(Clock.System.now().toEpochMilliseconds())
-        }
-        logcat(LogPriority.DEBUG) { "SyncYomi v2 merge done: cursor=$cursor changed=$changed fullRequested=$fullRequested" }
+                syncPreferences.syncCursor().set(cursor)
+                syncPreferences.fullSyncRequested().set(fullRequested)
+                // Only drop the uids we actually sent; a category deleted during the request stays pending.
+                syncPreferences.pendingDeletedCategoryUids().set(syncPreferences.pendingDeletedCategoryUids().get() - pendingDeleted)
+                if (full) {
+                    syncPreferences.lastFullSync().set(Clock.System.now().toEpochMilliseconds())
+                }
+                logcat(LogPriority.DEBUG) { "SyncYomi v2 merge done: cursor=$cursor changed=$changed fullRequested=$fullRequested" }
 
-        reportSyncEvent(SyncEventStatus.SYNC_SUCCESS)
-        SyncResult(remote, changed = changed, protocolV2 = true)
-        } /* KMK <-- */
+                reportSyncEvent(SyncEventStatus.SYNC_SUCCESS)
+                SyncResult(remote, changed = changed, protocolV2 = true)
+            }
     }
 
     /**
@@ -254,43 +257,46 @@ class SyncYomiSyncService(
             headers = headers,
         )
 
-        /* KMK --> */ client.newCall(downloadRequest).await().use { response -> /* KMK <-- */
-        if (response.code == HttpStatus.SC_NOT_MODIFIED) {
-            // not modified
-            assert(lastETag.isNotEmpty())
-            logcat(LogPriority.INFO) {
-                "Remote server not modified"
-            }
-            return Pair(null, lastETag)
-        } else if (response.code == HttpStatus.SC_NOT_FOUND) {
-            // maybe got deleted from remote
-            return Pair(null, "")
-        }
-
-        if (response.isSuccessful) {
-            val newETag = response.headers["ETag"]
-                .takeIf { it?.isNotEmpty() == true } ?: throw SyncYomiException("Missing ETag")
-
-            val byteArray = response.body.bytes()
-
-            return try {
-                val backup = protoBuf.decodeFromByteArray(Backup.serializer(), byteArray)
-                return Pair(SyncData(backup = backup), newETag)
-            } catch (_: SerializationException) {
-                logcat(LogPriority.INFO) {
-                    "Bad content responsed from server"
+        client.newCall(downloadRequest).await()
+            // KMK -->
+            .use { response ->
+                // KMK <--
+                if (response.code == HttpStatus.SC_NOT_MODIFIED) {
+                    // not modified
+                    assert(lastETag.isNotEmpty())
+                    logcat(LogPriority.INFO) {
+                        "Remote server not modified"
+                    }
+                    return Pair(null, lastETag)
+                } else if (response.code == HttpStatus.SC_NOT_FOUND) {
+                    // maybe got deleted from remote
+                    return Pair(null, "")
                 }
-                // the body is invalid
-                // return default value so we can overwrite it
-                Pair(null, "")
+
+                if (response.isSuccessful) {
+                    val newETag = response.headers["ETag"]
+                        .takeIf { it?.isNotEmpty() == true } ?: throw SyncYomiException("Missing ETag")
+
+                    val byteArray = response.body.bytes()
+
+                    return try {
+                        val backup = protoBuf.decodeFromByteArray(Backup.serializer(), byteArray)
+                        return Pair(SyncData(backup = backup), newETag)
+                    } catch (_: SerializationException) {
+                        logcat(LogPriority.INFO) {
+                            "Bad content responsed from server"
+                        }
+                        // the body is invalid
+                        // return default value so we can overwrite it
+                        Pair(null, "")
+                    }
+                } else {
+                    val responseBody = response.body.string()
+                    notifier.showSyncError("Failed to download sync data: $responseBody")
+                    logcat(LogPriority.ERROR) { "SyncError: $responseBody" }
+                    throw SyncYomiException("Failed to download sync data: $responseBody")
+                }
             }
-        } else {
-            val responseBody = response.body.string()
-            notifier.showSyncError("Failed to download sync data: $responseBody")
-            logcat(LogPriority.ERROR) { "SyncError: $responseBody" }
-            throw SyncYomiException("Failed to download sync data: $responseBody")
-        }
-        } /* KMK <-- */
     }
 
     /**
@@ -320,24 +326,27 @@ class SyncYomiSyncService(
             body = body,
         )
 
-        /* KMK --> */ client.newCall(uploadRequest).await().use { response -> /* KMK <-- */
-        if (response.isSuccessful) {
-            val newETag = response.headers["ETag"]
-                .takeIf { it?.isNotEmpty() == true } ?: throw SyncYomiException("Missing ETag")
-            syncPreferences.lastSyncEtag().set(newETag)
-            logcat(LogPriority.DEBUG) { "SyncYomi sync completed" }
-            return true
-        } else if (response.code == HttpStatus.SC_PRECONDITION_FAILED) {
-            // other clients updated remote data, will try next time
-            logcat(LogPriority.DEBUG) { "SyncYomi sync failed with 412" }
-            return false
-        } else {
-            val responseBody = response.body.string()
-            notifier.showSyncError("Failed to upload sync data: $responseBody")
-            logcat(LogPriority.ERROR) { "SyncError: $responseBody" }
-            return false
-        }
-        } /* KMK <-- */
+        client.newCall(uploadRequest).await()
+            // KMK -->
+            .use { response ->
+                // KMK <--
+                if (response.isSuccessful) {
+                    val newETag = response.headers["ETag"]
+                        .takeIf { it?.isNotEmpty() == true } ?: throw SyncYomiException("Missing ETag")
+                    syncPreferences.lastSyncEtag().set(newETag)
+                    logcat(LogPriority.DEBUG) { "SyncYomi sync completed" }
+                    return true
+                } else if (response.code == HttpStatus.SC_PRECONDITION_FAILED) {
+                    // other clients updated remote data, will try next time
+                    logcat(LogPriority.DEBUG) { "SyncYomi sync failed with 412" }
+                    return false
+                } else {
+                    val responseBody = response.body.string()
+                    notifier.showSyncError("Failed to upload sync data: $responseBody")
+                    logcat(LogPriority.ERROR) { "SyncError: $responseBody" }
+                    return false
+                }
+            }
     }
 
     private suspend fun reportSyncEvent(event: SyncEventStatus, message: String? = null) {
